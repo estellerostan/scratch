@@ -1,0 +1,42 @@
+# First principles
+REPL is awesome!
+But what if I want to eval code that has external API funcs? clojurescript?
+
+
+# Basic Types
+## Mathematical operations
+user=> (== 3 3.0)
+;; true
+
+but 
+
+user=> (== 3 "3")
+;; ClassCastException
+
+well then how do I get that to work?
+
+(== 3 (Double/parseDouble "3.0"))
+
+or
+(require '[clojure.edn :as edn])
+(== 3 (edn/read-string "3.0")) 
+;; to not have to specify the number's type
+
+from http://clojuredocs.org/clojure.core/num
+
+
+not= exists but not not==
+so (not= 1 1)
+but (not (== 1 1.0))
+
+## Symnbols
+(type nil) ??
+
+because from https://clojure.org/reference/lisps 
+nil is not a Symbol
+so what is it?
+In Clojure nil means 'nothing'. It signifies the absence of a value, of any type, and is not specific to lists or sequences.
+
+
+
+Also maybe silly questions but: how to debug ClojureScript code in the PREL? Because I know how to evaluate Clojure core code (it just works) and to use other namespaces just add a require before evaluating but does it work the same for ClojureScrip
