@@ -6,4 +6,6 @@
   (apply * (repeat power base)))
 
 (use 'cheshire.core)
-(parse-string (slurp "resources/ucr-normalized-2008.json"))
+(def data (parse-string (slurp "resources/ucr-normalized-2008.json") true))
+
+(->> data (map :driving_under_influence))
