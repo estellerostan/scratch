@@ -8,4 +8,4 @@
 (use 'cheshire.core)
 (def data (parse-string (slurp "resources/ucr-normalized-2008.json") true))
 
-(->> data (map :driving_under_influence))
+(->> data (map :driving_under_influence) frequencies)
