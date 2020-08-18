@@ -10,4 +10,7 @@
 
 (def data (cheshire/parse-string (slurp "resources/ucr-normalized-2008.json") true))
 
-(->> data (map :driving_under_influence) frequencies (sort-by key) (take-last 10) p/pprint)
+(->> data (sort-by :driving_under_influence) 
+     (take-last 10) 
+     (map #(select-keys % [:driving_under_influence :fips_county_code :fips_state_code]))
+     p/pprint)
