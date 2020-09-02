@@ -82,3 +82,10 @@
         (assoc :r total-force)
         ; and transform back to Cartesian-land
         spherical->cartesian)))
+
+(defn fuel-rate
+  "How fast is fuel, in kilograms/second, consumed by the craft?"
+  [craft]
+  (if (pos? (:fuel-mass craft))
+    (:max-fuel-rate craft)
+    0))
