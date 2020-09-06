@@ -89,3 +89,55 @@
   (if (pos? (:fuel-mass craft))
     (:max-fuel-rate craft)
     0))
+
+(defn thrust
+  "How much force, in newtons, does the craft's rocket engines exert?"
+  [craft]
+  (* (fuel-rate craft) (:isp craft)))
+
+(defn engine-force
+  "The force vector, each component in Newtons, due to the rocket engine."
+  [craft]
+  (let [t (thrust craft)]
+    {:x t
+     :y 0
+     :z 0}))
+
+(defn total-force
+  "Total force on a craft."
+  [craft]
+  (merge-with + (engine-force craft)
+     (gravity-force craft)))
+
+(defn map-values
+  "Applies f to every value in the map m."
+  [f m]
+  (into {}
+        (map (fn [pair]
+               [(key pair) (f (val pair))])
+             m)))
+
+(defn scale
+  "Multiplies a map of x, y, and z coordinates by the given factor."
+  [factor coordinates]
+  (map-values (partial * factor) coordinates))
+
+(defn acceleration
+  "Total acceleration of a craft."
+  [craft]
+  (let [m (mass craft)]
+    (scale (/ m) (total-force craft))))
+
+(defn step
+  [craft dt]
+  (assoc craft
+         ; Time advances by dt seconds
+         :time         (+ dt (:time craft))
+         ; We burn some fuel
+         :fuel-mass (- (:fuel-mass craft) (* dt (fuel-rate craft)))
+         ; Our position changes based on our velocity
+         :position  (merge-with + (:position craft)
+                                (scale dt (:velocity craft)))
+         ; And our velocity changes based on our acceleration
+         :velocity  (merge-with + (:velocity craft)
+                                (scale dt (acceleration craft)))))
