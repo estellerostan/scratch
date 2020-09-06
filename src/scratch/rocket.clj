@@ -52,17 +52,18 @@
                 (Math/pow (:z c) 2))))
 
 (defn cartesian->spherical
-  "Converts a map of Cartesian coordinates :x, :y, and :z to spherical coordinates :r, :theta, and :phi."
+  "Converts a map of Cartesian coordinates :x, :y, and :z to spherical 
+   coordinates :r, :theta, and :phi."
   [c]
   (let [r (magnitude c)]
-    {:r r
-     :theta (Math/acos (/ (:z c) r))
-     :phi   (Math/atan (/ (:y c) (:x c)))}))
+    {:r     r
+     :phi   (Math/acos (/ (:z c) r))
+     :theta (Math/atan (/ (:y c) (:x c)))}))
 
 (defn spherical->cartesian
   "Converts spherical to Cartesian coordinates."
   [c]
-  {:x (* (:r c) (Math/sin (:theta c)) (Math/cos (:phi c)))
+  {:x (* (:r c) (Math/cos (:theta c)) (Math/sin (:phi c)))
    :y (* (:r c) (Math/sin (:theta c)) (Math/sin (:phi c)))
    :z (* (:r c) (Math/cos (:phi c)))})
 
