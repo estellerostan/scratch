@@ -14,7 +14,7 @@
       (is (= pos (-> pos cartesian->spherical spherical->cartesian))))))
 
 (deftest makes-orbit
-  (let [trajectory (->> (atlas-v)
+  (let [trajectory (->> (atlas-v (centaur))
                         prepare
                         (trajectory 1))]
 

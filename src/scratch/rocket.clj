@@ -1,13 +1,13 @@
 (ns scratch.rocket)
 
 (defn atlas-v
-  []
+  "The full launch vehicle. http://en.wikipedia.org/wiki/Atlas_V"
+  [next-stage]
   {:dry-mass  50050
    :fuel-mass 284450
-   :time 0
    :isp 3050
    :max-fuel-rate (/ 284450 253)
-   :max-thrust 4.152e6})
+   :next-stage next-stage})
 
 (defn mass
   "The total mass of a craft."
@@ -108,7 +108,7 @@
   "Total force on a craft."
   [craft]
   (merge-with + (engine-force craft)
-     (gravity-force craft)))
+              (gravity-force craft)))
 
 (defn map-values
   "Applies f to every value in the map m."
@@ -129,8 +129,27 @@
   (let [m (mass craft)]
     (scale (/ m) (total-force craft))))
 
+(defn stage
+  "When fuel reserves are exhausted, separate stages. Otherwise, return craft
+  unchanged."
+  [craft]
+  (cond
+    ; Still fuel left
+    (pos? (:fuel-mass craft))
+    craft
+
+    ; No remaining stages
+    (nil? (:next-stage craft))
+    craft
+
+    ; Stage!
+    :else
+    (merge (:next-stage craft)
+           (select-keys craft [:time :position :velocity]))))
+
 (defn step
   [craft dt]
+  (let [craft (stage craft)]
   (assoc craft
          ; Time advances by dt seconds
          :time         (+ dt (:time craft))
@@ -141,7 +160,7 @@
                                 (scale dt (:velocity craft)))
          ; And our velocity changes based on our acceleration
          :velocity  (merge-with + (:velocity craft)
-                                (scale dt (acceleration craft)))))
+                                (scale dt (acceleration craft))))))
 
 (defn trajectory
   "Returns all future states of the craft, at dt-second intervals."
@@ -188,3 +207,27 @@
   "The time of apoapsis"
   [trajectory]
   (:time (apply max-key altitude (flight trajectory))))
+
+(defn centaur
+  "The upper rocket stage.
+  http://en.wikipedia.org/wiki/Centaur_(rocket_stage)
+  https://web.archive.org/web/20140224130337/astronautix.com/stages/cenaurde.htm"
+  []
+  {:dry-mass  2361
+   :fuel-mass 13897
+   :isp       4354
+   :max-fuel-rate (/ 13897 470)})
+
+(defn centaur-2
+  "The upper rocket stage.
+  Version with fixed typo and comments about different values for different
+  information sources.
+  Original centaur function kept to make it easier to follow along exercises.
+  http://en.wikipedia.org/wiki/Centaur_(rocket_stage)
+  http://www.astronautix.com/stages/cenaurde.html"
+  []
+  {:dry-mass  2631 ;; Unfuelled mass on astronautix but 2,247 kg of empty mass 
+                   ;; on Wikipedia
+   :isp       4354 ;; But 4.418 km/s on Wikipedia
+   :max-fuel-rate (/ 13627 470)}) ;; (/ fuel-mass burn-time) but burn time is 
+                                  ;; "842 seconds on Atlas V" on Wikipedia
