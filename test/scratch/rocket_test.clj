@@ -12,3 +12,16 @@
   (testing "roundtrip"
     (let [pos {:x 1.0 :y 2.0 :z 3.0}]
       (is (= pos (-> pos cartesian->spherical spherical->cartesian))))))
+
+(deftest makes-orbit
+  (let [trajectory (->> (atlas-v)
+                        prepare
+                        (trajectory 1))]
+
+    (when (crashed? trajectory)
+      (println "Crashed at" (crash-time trajectory) "seconds")
+      (println "Maximum altitude" (apoapsis trajectory)
+               "meters at"        (apoapsis-time trajectory) "seconds"))
+
+    ; Assert that the rocket eventually made it to orbit.
+    (is (not (crashed? trajectory)))))

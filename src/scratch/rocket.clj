@@ -142,3 +142,49 @@
          ; And our velocity changes based on our acceleration
          :velocity  (merge-with + (:velocity craft)
                                 (scale dt (acceleration craft)))))
+
+(defn trajectory
+  "Returns all future states of the craft, at dt-second intervals."
+  [dt craft]
+  (iterate #(step % dt) craft))
+
+(defn altitude
+  "The height above the surface of the equator, in meters."
+  [craft]
+  (-> craft
+      :position
+      cartesian->spherical
+      :r
+      (- earth-equatorial-radius)))
+
+(defn above-ground?
+  "Is the craft at or above the surface?"
+  [craft]
+  (>= (altitude craft) 0))
+
+(defn flight
+  "The above-ground portion of a trajectory."
+  [trajectory]
+  (take-while above-ground? trajectory))
+
+(defn crashed?
+  "Does this trajectory crash into the surface before 100 hours are up?"
+  [trajectory]
+  (let [time-limit (* 100 3600)] ; 1 hour
+    (not (every? above-ground?
+                 (take-while #(<= (:time %) time-limit) trajectory)))))
+
+(defn crash-time
+  "Given a trajectory, returns the time the rocket impacted the ground."
+  [trajectory]
+  (:time (last (flight trajectory))))
+
+(defn apoapsis
+  "The highest altitude achieved during a trajectory."
+  [trajectory]
+  (apply max (map altitude (flight trajectory))))
+
+(defn apoapsis-time
+  "The time of apoapsis"
+  [trajectory]
+  (:time (apply max-key altitude (flight trajectory))))
