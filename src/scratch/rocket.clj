@@ -1,5 +1,7 @@
 (ns scratch.rocket)
 
+;; Craft
+
 (defn atlas-v
   "The full launch vehicle. http://en.wikipedia.org/wiki/Atlas_V"
   [next-stage]
@@ -9,10 +11,36 @@
    :max-fuel-rate (/ 284450 253)
    :next-stage next-stage})
 
+(defn centaur
+  "The upper rocket stage.
+  http://en.wikipedia.org/wiki/Centaur_(rocket_stage)
+  https://web.archive.org/web/20140224130337/astronautix.com/stages/cenaurde.htm"
+  []
+  {:dry-mass  2361
+   :fuel-mass 13897
+   :isp       4354
+   :max-fuel-rate (/ 13897 470)})
+
+(defn centaur-2
+  "The upper rocket stage.
+  Version with fixed typo and comments about different values for different
+  information sources.
+  Original centaur function kept to make it easier to follow along exercises.
+  http://en.wikipedia.org/wiki/Centaur_(rocket_stage)
+  http://www.astronautix.com/stages/cenaurde.html"
+  []
+  {:dry-mass  2631 ;; Unfuelled mass on astronautix but 2,247 kg of empty mass 
+                   ;; on Wikipedia
+   :isp       4354 ;; But 4.418 km/s on Wikipedia
+   :max-fuel-rate (/ 13627 470)}) ;; (/ fuel-mass burn-time) but burn time is 
+                                  ;; "842 seconds on Atlas V" on Wikipedia
+
 (defn mass
   "The total mass of a craft."
   [craft]
   (+ (:dry-mass craft) (:fuel-mass craft)))
+
+;; Constants
 
 (def earth-equatorial-radius
   "Radius of the earth, in meters"
@@ -38,10 +66,9 @@
               :y earth-equatorial-speed
               :z 0}})
 
-(defn prepare
-  "Prepares a craft for launch from an equatorial space center."
-  [craft]
-  (merge craft initial-space-center))
+(def g "Acceleration of gravity in meters/s^2" -9.8)
+
+;; maths and physics
 
 (defn magnitude
   "What's the radius of a given set of cartesian coordinates?"
@@ -67,8 +94,6 @@
    :y (* (:r c) (Math/sin (:theta c)) (Math/sin (:phi c)))
    :z (* (:r c) (Math/cos (:phi c)))})
 
-(def g "Acceleration of gravity in meters/s^2" -9.8)
-
 (defn gravity-force
   "The force vector, each component in Newtons, due to gravity."
   [craft]
@@ -83,6 +108,50 @@
         (assoc :r total-force)
         ; and transform back to Cartesian-land
         spherical->cartesian)))
+
+(defn map-values
+  "Applies f to every value in the map m."
+  [f m]
+  (into {}
+        (map (fn [pair]
+               [(key pair) (f (val pair))])
+             m)))
+
+(defn scale
+  "Multiplies a map of x, y, and z coordinates by the given factor."
+  [factor coordinates]
+  (map-values (partial * factor) coordinates))
+
+(defn unit-vector
+  "Scales coordinates to magnitude 1."
+  [coordinates]
+  (scale (/ (magnitude coordinates)) coordinates))
+
+(defn dot-product
+  "Finds the inner product of two x, y, z coordinate maps.
+  See http://en.wikipedia.org/wiki/Dot_product."
+  [c1 c2]
+  (+ (* (:x c1) (:x c2))
+     (* (:y c1) (:y c2))
+     (* (:z c1) (:z c2))))
+
+(defn projection
+  "The component of coordinate map a in the direction of coordinate map b.
+  See http://en.wikipedia.org/wiki/Vector_projection."
+  [a b]
+  (let [b (unit-vector b)]
+    (scale (dot-product a b) b)))
+
+(defn rejection
+  "The component of coordinate map a *not* in the direction of coordinate map
+  b."
+  [a b]
+  (let [a' (projection a b)]
+    {:x (- (:x a) (:x a'))
+     :y (- (:y a) (:y a'))
+     :z (- (:z a) (:z a'))}))
+
+;; rocket's software
 
 (def ascent
   "The start and end times for the ascent burn."
@@ -116,32 +185,41 @@
   [craft]
   (* (fuel-rate craft) (:isp craft)))
 
+(defn prepare
+  "Prepares a craft for launch from an equatorial space center."
+  [craft]
+  (merge craft initial-space-center))
+
+(defn orientation
+  "What direction is the craft pointing?"
+  [craft]
+  (cond
+    ; Initially, point along the *position* vector of the craft--that is
+    ; to say, straight up, away from the earth.
+    (<= (first ascent) (:time craft) (last ascent))
+    (:position craft)
+
+    ; During the circularization burn, we want to burn *sideways*, in the
+    ; direction of the orbit. We'll find the component of our velocity
+    ; which is aligned with our position vector (that is to say, the vertical
+    ; velocity), and subtract the vertical component. All that's left is the
+    ; *horizontal* part of our velocity.
+    (<= (first circularization) (:time craft) (last circularization))
+    (rejection (:velocity craft) (:position craft))
+
+    ; Otherwise, just point straight ahead.
+    :else (:velocity craft)))
+
 (defn engine-force
   "The force vector, each component in Newtons, due to the rocket engine."
   [craft]
-  (let [t (thrust craft)]
-    {:x t
-     :y 0
-     :z 0}))
+  (scale (thrust craft) (unit-vector (orientation craft))))
 
 (defn total-force
   "Total force on a craft."
   [craft]
   (merge-with + (engine-force craft)
               (gravity-force craft)))
-
-(defn map-values
-  "Applies f to every value in the map m."
-  [f m]
-  (into {}
-        (map (fn [pair]
-               [(key pair) (f (val pair))])
-             m)))
-
-(defn scale
-  "Multiplies a map of x, y, and z coordinates by the given factor."
-  [factor coordinates]
-  (map-values (partial * factor) coordinates))
 
 (defn acceleration
   "Total acceleration of a craft."
@@ -228,80 +306,4 @@
   [trajectory]
   (:time (apply max-key altitude (flight trajectory))))
 
-(defn centaur
-  "The upper rocket stage.
-  http://en.wikipedia.org/wiki/Centaur_(rocket_stage)
-  https://web.archive.org/web/20140224130337/astronautix.com/stages/cenaurde.htm"
-  []
-  {:dry-mass  2361
-   :fuel-mass 13897
-   :isp       4354
-   :max-fuel-rate (/ 13897 470)})
 
-(defn centaur-2
-  "The upper rocket stage.
-  Version with fixed typo and comments about different values for different
-  information sources.
-  Original centaur function kept to make it easier to follow along exercises.
-  http://en.wikipedia.org/wiki/Centaur_(rocket_stage)
-  http://www.astronautix.com/stages/cenaurde.html"
-  []
-  {:dry-mass  2631 ;; Unfuelled mass on astronautix but 2,247 kg of empty mass 
-                   ;; on Wikipedia
-   :isp       4354 ;; But 4.418 km/s on Wikipedia
-   :max-fuel-rate (/ 13627 470)}) ;; (/ fuel-mass burn-time) but burn time is 
-                                  ;; "842 seconds on Atlas V" on Wikipedia
-
-(defn unit-vector
-  "Scales coordinates to magnitude 1."
-  [coordinates]
-  (scale (/ (magnitude coordinates)) coordinates))
-
-(defn dot-product
-  "Finds the inner product of two x, y, z coordinate maps.
-  See http://en.wikipedia.org/wiki/Dot_product."
-  [c1 c2]
-  (+ (* (:x c1) (:x c2))
-     (* (:y c1) (:y c2))
-     (* (:z c1) (:z c2))))
-
-(defn projection
-  "The component of coordinate map a in the direction of coordinate map b.
-  See http://en.wikipedia.org/wiki/Vector_projection."
-  [a b]
-  (let [b (unit-vector b)]
-    (scale (dot-product a b) b)))
-
-(defn rejection
-  "The component of coordinate map a *not* in the direction of coordinate map
-  b."
-  [a b]
-  (let [a' (projection a b)]
-    {:x (- (:x a) (:x a'))
-     :y (- (:y a) (:y a'))
-     :z (- (:z a) (:z a'))}))
-
-(defn orientation
-  "What direction is the craft pointing?"
-  [craft]
-  (cond
-    ; Initially, point along the *position* vector of the craft--that is
-    ; to say, straight up, away from the earth.
-    (<= (first ascent) (:time craft) (last ascent))
-    (:position craft)
-
-    ; During the circularization burn, we want to burn *sideways*, in the
-    ; direction of the orbit. We'll find the component of our velocity
-    ; which is aligned with our position vector (that is to say, the vertical
-    ; velocity), and subtract the vertical component. All that's left is the
-    ; *horizontal* part of our velocity.
-    (<= (first circularization) (:time craft) (last circularization))
-    (rejection (:velocity craft) (:position craft))
-
-    ; Otherwise, just point straight ahead.
-    :else (:velocity craft)))
-
-(defn engine-force
-  "The force vector, each component in Newtons, due to the rocket engine."
-  [craft]
-  (scale (thrust craft) (unit-vector (orientation craft))))
